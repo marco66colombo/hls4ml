@@ -120,6 +120,7 @@ def compare_oneapi_backend(data, baseline):
 COMPARE_FUNCS = {
     'Vivado': compare_vitis_backend,
     'Vitis': compare_vitis_backend,
+    'VivadoAccelerator': compare_vitis_backend,
     'oneAPI': compare_oneapi_backend,
 }
 
@@ -127,6 +128,7 @@ COMPARE_FUNCS = {
 EXPECTED_REPORT_KEYS = {
     'Vivado': {'CSynthesisReport'},
     'Vitis': {'CSynthesisReport'},
+    'VivadoAccelerator': {'CSynthesisReport'},
     'oneAPI': {'report'},
 }
 

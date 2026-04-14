@@ -63,18 +63,23 @@ def synthesis_config():
         },
         'build_args': {
             'Vivado': {'csim': False, 'synth': True, 'export': False},
-            # Full accelerator flow: run C/RTL synthesis, downstream Vivado synthesis, and board project/bitfile.
+            # Default synthesis-style arguments used by baseline comparison tests.
+            'VivadoAccelerator': {'csim': False, 'synth': True, 'export': False},
+            'Vitis': {'csim': False, 'synth': True, 'export': False},
+            'Quartus': {'synth': True, 'fpgasynth': False},
+            'oneAPI': {'build_type': 'report', 'run': False},
+        },
+        'implementation_build_args': {
+            # Full accelerator flow for implementation dataset collection:
+            # run HLS synth, downstream Vivado synth, and bitfile generation.
             'VivadoAccelerator': {
                 'csim': False,
                 'synth': True,
-                'cosim': False,
+                'cosim': True,
                 'validation': False,
                 'export': True,
                 'vsynth': True,
                 'bitfile': True,
-            },
-            'Vitis': {'csim': False, 'synth': True, 'export': False},
-            'Quartus': {'synth': True, 'fpgasynth': False},
-            'oneAPI': {'build_type': 'report', 'run': False},
+            }
         },
     }

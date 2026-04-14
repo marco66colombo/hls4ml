@@ -3,11 +3,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 import tensorflow as tf
-from synthesis_helpers import run_synthesis_test
-from tensorflow.keras.layers import (
-    Activation,
-    Dense,
-)
+from synthesis_helpers import run_implementation_collection_test
+from tensorflow.keras.layers import Activation, Dense
 
 import hls4ml
 
@@ -28,24 +25,16 @@ def test_dense(test_case_id, backend, io_type, synthesis_config):
             use_bias=True,
             kernel_initializer=tf.keras.initializers.RandomUniform(minval=1, maxval=10),
             bias_initializer='zeros',
-            kernel_regularizer=None,
-            bias_regularizer=None,
-            activity_regularizer=None,
-            kernel_constraint=None,
-            bias_constraint=None,
         )
     )
     model.add(Activation(activation='elu', name='Activation'))
     model.compile(optimizer='adam', loss='mse')
 
-    X_input = np.random.rand(100, 1)
-
-    keras_prediction = model.predict(X_input)
+    x_input = np.random.rand(100, 1)
+    keras_prediction = model.predict(x_input)
 
     config = hls4ml.utils.config_from_keras_model(model)
     output_dir = str(test_root_path / test_case_id)
-    baseline_file_name = f'{test_case_id}.json'
-
     hls_model = hls4ml.converters.convert_from_keras_model(
         model,
         hls_config=config,
@@ -57,8 +46,7 @@ def test_dense(test_case_id, backend, io_type, synthesis_config):
     )
 
     hls_model.compile()
-
-    hls_prediction = hls_model.predict(X_input)
+    hls_prediction = hls_model.predict(x_input)
 
     np.testing.assert_allclose(hls_prediction, keras_prediction, rtol=1e-2, atol=0.01)
 
@@ -72,9 +60,10 @@ def test_dense(test_case_id, backend, io_type, synthesis_config):
     assert list(hls_model.get_layers())[2].attributes['activation'] == str(model.layers[1].activation).split()[1]
     assert list(hls_model.get_layers())[1].attributes['activation'] == str(model.layers[0].activation).split()[1]
 
-    run_synthesis_test(
+    run_implementation_collection_test(
         config=synthesis_config,
         hls_model=hls_model,
-        baseline_file_name=baseline_file_name,
+        test_case_id=test_case_id,
         backend=backend,
+        metadata={'board': VIVADOACC_BOARD, 'part': VIVADOACC_PART},
     )

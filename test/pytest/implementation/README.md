@@ -25,7 +25,9 @@ and keep their behavior-specific logic in:
 Tool exposure policy:
 
 - normal template uses `vivado_hls`
-- implementation template additionally exposes full `vivado` for bitfile-oriented flows
+- implementation template exposes `vivado_hls`, `vivado`, `vitis-run`, `v++`, and `vitis`
+- implementation jobs select tool-exposure mode by extending a script profile in
+  `implementation/pytests.yml` (`.implementation.script.tools-*`)
 - implementation dataset output path is controlled by `IMPLEMENTATION_DATASET_DIR`
   (default in CI: `test/pytest/implementation`)
 
@@ -33,4 +35,6 @@ Tool exposure policy:
 
 1. Add a new file in this folder matching `test_*.py`.
 2. Add a matching static CI job entry in `test/pytest/implementation/pytests.yml`.
-3. Keep tests collect-only: validate full flow success and emit dataset artifacts.
+3. Set per-job tool versions (`VIVADO_VERSION`, `VITIS_VERSION`) in `pytests.yml`.
+4. Select a per-job tool wrapper script profile in `pytests.yml`.
+5. Keep tests collect-only: validate full flow success and emit dataset artifacts.

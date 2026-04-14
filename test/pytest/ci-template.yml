@@ -4,6 +4,19 @@
     # Load Intel oneAPI environment variables for oneAPI-related tests in the default matrix.
     - source /opt/intel/oneapi/setvars.sh --force
 
+    # Tool wrappers for normal pytest CI.
+    - mkdir -p cmd_vivado_${VIVADO_VERSION}
+    - echo '#!/bin/bash' > cmd_vivado_${VIVADO_VERSION}/vivado_hls
+    - echo "apptainer exec --cleanenv --env LANG=C,LC_ALL=C /cvmfs/projects.cern.ch/hls4ml/vivado/${VIVADO_VERSION} vivado_hls \"\$@\"" >> cmd_vivado_${VIVADO_VERSION}/vivado_hls
+    - chmod +x cmd_vivado_${VIVADO_VERSION}/vivado_hls
+    - export PATH=$PWD/cmd_vivado_${VIVADO_VERSION}:$PATH
+
+    - mkdir -p cmd_vitis_${VITIS_VERSION}
+    - echo '#!/bin/bash' > cmd_vitis_${VITIS_VERSION}/vitis-run
+    - echo "apptainer exec /cvmfs/projects.cern.ch/hls4ml/vitis/${VITIS_VERSION} vitis-run \"\$@\"" >> cmd_vitis_${VITIS_VERSION}/vitis-run
+    - chmod +x cmd_vitis_${VITIS_VERSION}/vitis-run
+    - export PATH=$PWD/cmd_vitis_${VITIS_VERSION}:$PATH
+
     - cd test/pytest
     - pytest $PYTESTFILE -rA --cov-report xml --cov-report term --cov=hls4ml --junitxml=report.xml --randomly-seed=42 --randomly-dont-reorganize --randomly-dont-reset-seed
   artifacts:

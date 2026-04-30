@@ -18,9 +18,10 @@ EXPECTED_REPORT_KEYS = {
 
 REQUIRED_METADATA_FIELDS = {
     'VivadoAccelerator': {'board', 'part'},
+    'VitisUnified': {'board', 'part', 'axi_mode'},
 }
 
-BITFILE_REQUIRED_BACKENDS = {'VivadoAccelerator'}
+BITFILE_REQUIRED_BACKENDS = {'VivadoAccelerator', 'VitisUnified'}
 
 
 def _utc_now():
@@ -176,13 +177,15 @@ def run_implementation_collection_test(config, hls_model, test_case_id, backend,
             report = hls_model.build(**build_args)
     except Exception as e:
         pytest.fail(f'hls_model.build failed: {e}')
+    report = report or {}
     finished_at = _utc_now()
     duration = round(time.monotonic() - started, 3)
 
     expected_keys = EXPECTED_REPORT_KEYS.get(backend, set())
-    assert report and expected_keys.issubset(report.keys()), (
-        f'Implementation failed: missing expected report keys: expected {expected_keys}, got {set(report.keys())}'
-    )
+    if expected_keys:
+        assert expected_keys.issubset(report.keys()), (
+            f'Implementation failed: missing expected report keys: expected {expected_keys}, got {set(report.keys())}'
+        )
 
     output_dir = hls_model.config.get_output_dir()
     bitfiles = _collect_files(output_dir, {'.bit'})

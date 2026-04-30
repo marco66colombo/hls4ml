@@ -58,6 +58,7 @@ def synthesis_config():
             'Vivado': os.getenv('VIVADO_VERSION', '2020.1'),
             'VivadoAccelerator': os.getenv('VIVADO_VERSION', '2020.1'),
             'Vitis': os.getenv('VITIS_VERSION', '2024.1'),
+            'VitisUnified': os.getenv('VITIS_VERSION', '2024.1'),
             'Quartus': os.getenv('QUARTUS_VERSION', 'latest'),
             'oneAPI': os.getenv('ONEAPI_VERSION', '2025.0.1'),
         },
@@ -80,6 +81,12 @@ def synthesis_config():
                 'export': True,
                 'vsynth': True,
                 'bitfile': True,
-            }
+            },
+            'VitisUnified': {
+                'csim': False,
+                'synth': True,
+                'cosim': True,
+                'bitfile': True,
+            },
         },
     }

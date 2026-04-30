@@ -1,7 +1,4 @@
 import json
-import os
-import subprocess
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -122,7 +119,6 @@ def compare_oneapi_backend(data, baseline):
 
 COMPARE_FUNCS = {
     'Vivado': compare_vitis_backend,
-    'VivadoAccelerator': compare_vitis_backend,
     'Vitis': compare_vitis_backend,
     'oneAPI': compare_oneapi_backend,
 }
@@ -130,64 +126,9 @@ COMPARE_FUNCS = {
 
 EXPECTED_REPORT_KEYS = {
     'Vivado': {'CSynthesisReport'},
-    'VivadoAccelerator': {'CSynthesisReport'},
     'Vitis': {'CSynthesisReport'},
     'oneAPI': {'report'},
 }
-
-IMPLEMENTATION_EXPECTED_REPORT_KEYS = {
-    'VivadoAccelerator': {'CSynthesisReport', 'VivadoSynthReport', 'TimingReport'},
-}
-
-BITFILE_REQUIRED_BACKENDS = {'VivadoAccelerator'}
-
-IMPLEMENTATION_REQUIRED_METADATA_FIELDS = {
-    'VivadoAccelerator': {'board', 'part'},
-}
-
-DEFAULT_IMPLEMENTATION_DATASET_DIR = Path(__file__).parent / 'implementation'
-IMPLEMENTATION_DATASET_DIR_ENV = 'IMPLEMENTATION_DATASET_DIR'
-
-
-def _resolve_commit_sha():
-    commit_sha = os.getenv('CI_COMMIT_SHA')
-    if commit_sha:
-        return commit_sha
-
-    try:
-        return subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return 'unknown'
-
-
-def _collect_bitfiles(output_dir):
-    output_path = Path(output_dir)
-    return sorted(str(path.relative_to(output_path)) for path in output_path.rglob('*.bit'))
-
-
-def _save_implementation_dataset(data, test_case_id):
-    dataset_dir = Path(os.getenv(IMPLEMENTATION_DATASET_DIR_ENV, str(DEFAULT_IMPLEMENTATION_DATASET_DIR)))
-    dataset_dir.mkdir(parents=True, exist_ok=True)
-    out_path = dataset_dir / f'implementation_dataset_{test_case_id}.json'
-    with open(out_path, 'w') as fp:
-        json.dump(data, fp, indent=4, sort_keys=True)
-
-
-def _validate_implementation_metadata(backend, metadata):
-    if metadata is None:
-        metadata = {}
-    if not isinstance(metadata, dict):
-        raise AssertionError('Implementation collection metadata must be a dictionary.')
-
-    required_fields = IMPLEMENTATION_REQUIRED_METADATA_FIELDS.get(backend, set())
-    missing_fields = sorted(field for field in required_fields if not metadata.get(field))
-    if missing_fields:
-        raise AssertionError(
-            f'Missing required metadata for backend {backend}: {missing_fields}. '
-            f'Provided metadata keys: {sorted(metadata.keys())}'
-        )
-
-    return metadata
 
 
 def run_synthesis_test(config, hls_model, baseline_file_name, backend):
@@ -241,60 +182,3 @@ def run_synthesis_test(config, hls_model, baseline_file_name, backend):
         raise AssertionError(f'No comparison function defined for backend: {backend}')
 
     compare_func(data, baseline)
-
-
-def run_implementation_collection_test(config, hls_model, test_case_id, backend, metadata=None):
-    """
-    Run an implementation-oriented backend build and write a dataset artifact.
-
-    This helper is intended for implementation collection tests (not baseline comparison tests).
-    It runs the backend build using implementation-specific build arguments, validates that
-    expected report sections exist, optionally validates backend-specific output artifacts
-    (e.g. bitfile presence), and saves a JSON dataset artifact with report data + metadata.
-
-    Args:
-        config (dict): Test configuration fixture, expected to contain tool versions and build args.
-        hls_model (object): hls4ml model instance to build.
-        test_case_id (str): Unique test identifier used in output dataset filename.
-        backend (str): Backend name (e.g. 'VivadoAccelerator').
-        metadata (dict, optional): Backend metadata.
-            Required fields are backend-specific and validated by
-            ``IMPLEMENTATION_REQUIRED_METADATA_FIELDS``.
-            Example for VivadoAccelerator: ``{'board': 'zcu102', 'part': 'xczu9eg-ffvb1156-2-e'}``.
-
-    Raises:
-        AssertionError: If required report keys are missing, required metadata is missing,
-            metadata type is invalid, or required output artifacts (e.g. bitfile) are missing.
-        pytest.fail: If backend build execution fails.
-    """
-    build_args = config.get('implementation_build_args', config.get('build_args', {}))
-    try:
-        report = hls_model.build(**build_args.get(backend, {}))
-    except Exception as e:
-        pytest.fail(f'hls_model.build failed: {e}')
-
-    expected_keys = IMPLEMENTATION_EXPECTED_REPORT_KEYS.get(backend, set())
-    assert report and expected_keys.issubset(report.keys()), (
-        f'Implementation collection failed: Missing expected keys in report: '
-        f'expected {expected_keys}, got {set(report.keys()) if report else set()}'
-    )
-
-    bitfiles = []
-    if backend in BITFILE_REQUIRED_BACKENDS:
-        bitfiles = _collect_bitfiles(hls_model.config.get_output_dir())
-        assert bitfiles, 'Bitfile generation failed: no .bit file was found in the output directory.'
-
-    metadata = _validate_implementation_metadata(backend, metadata)
-
-    dataset_metadata = {
-        'test_id': test_case_id,
-        'backend': backend,
-        'tool_version': config.get('tools_version', {}).get(backend, 'unknown'),
-        'commit_sha': _resolve_commit_sha(),
-        'collected_at_utc': datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00', 'Z'),
-        'bitfiles': bitfiles,
-    }
-    dataset_metadata.update(metadata)
-
-    dataset = {'metadata': dataset_metadata, 'report': report}
-    _save_implementation_dataset(dataset, test_case_id)

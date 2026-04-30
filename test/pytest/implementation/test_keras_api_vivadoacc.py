@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import tensorflow as tf
-from synthesis_helpers import run_implementation_collection_test
+from implementation_helpers import run_implementation_collection_test
 from tensorflow.keras.layers import Activation, Dense
 
 import hls4ml

@@ -35,7 +35,6 @@ pytests:
     - when: on_success
   trigger:
     include:
-      - local: test/pytest/ci-base-template.yml
       - local: test/pytest/ci-template.yml
       - artifact: test/pytest/pytests.yml
         job: generator
@@ -49,7 +48,6 @@ implementation-pytests:
     - when: never
   trigger:
     include:
-      - local: test/pytest/ci-base-template.yml
       - local: test/pytest/implementation/ci-template.yml
       - local: test/pytest/implementation/pytests.yml
     strategy: depend

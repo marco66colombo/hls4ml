@@ -1,10 +1,13 @@
 import json
 import os
+import subprocess
 import sys
 import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from hashlib import sha256
 from pathlib import Path
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 
@@ -29,7 +32,14 @@ def _utc_now():
 
 
 def _project_root():
-    return Path(os.getenv('CI_PROJECT_DIR', Path(__file__).parents[2]))
+    return Path(__file__).parents[2]
+
+
+def _git_commit(path):
+    try:
+        return subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=path, text=True).strip()
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
 
 
 def _portable_path(path):
@@ -51,6 +61,25 @@ def _collect_files(output_dir, suffixes=None):
         }
         files.append(entry)
     return files
+
+
+def _file_sha256(path):
+    digest = sha256()
+    with open(path, 'rb') as fp:
+        for chunk in iter(lambda: fp.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _zip_directory(directory, zip_path):
+    directory = Path(directory)
+    zip_path = Path(zip_path)
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    with ZipFile(zip_path, 'w', ZIP_DEFLATED) as archive:
+        for path in sorted(directory.rglob('*')):
+            if path.is_file():
+                archive.write(path, path.relative_to(directory.parent))
+    return zip_path
 
 
 def _dataset_dir():
@@ -115,31 +144,36 @@ def _build_dataset(
     build_started_at,
     build_finished_at,
     build_duration_seconds,
-    parsed_report_path,
+    hls4ml_report_path,
     build_output_path,
+    project_archive_path,
 ):
     output_dir = hls_model.config.get_output_dir()
+    model = metadata.get('model', {})
+    run_metadata = {key: value for key, value in metadata.items() if key not in {'artifact_id', 'model'}}
 
     return {
         'schema_version': DATASET_SCHEMA_VERSION,
         'test_id': test_case_id,
+        'source': {
+            'hls4ml_commit': _git_commit(_project_root()),
+            'repository_url': 'https://github.com/fastmachinelearning/hls4ml',
+        },
+        'model': model,
         'hls_config': {
             'backend': backend,
             'project_name': hls_model.config.get_project_name(),
             'build_args': build_args,
         },
-        'metadata': metadata,
+        'metadata': run_metadata,
         'toolchain': {
             'version': config.get('tools_version', {}).get(backend, 'unknown'),
         },
         'ci': {
-            'commit_sha': os.getenv('CI_COMMIT_SHA'),
-            'commit_ref': os.getenv('CI_COMMIT_REF_NAME'),
-            'commit_tag': os.getenv('CI_COMMIT_TAG'),
             'pipeline_id': os.getenv('CI_PIPELINE_ID'),
             'job_id': os.getenv('CI_JOB_ID'),
             'project_url': os.getenv('CI_PROJECT_URL'),
-            'job_image': os.getenv('CI_JOB_IMAGE'),
+            'job_url': os.getenv('CI_JOB_URL'),
             'runner_description': os.getenv('CI_RUNNER_DESCRIPTION'),
             'runner_tags': os.getenv('CI_RUNNER_TAGS'),
         },
@@ -149,15 +183,17 @@ def _build_dataset(
             'finished_at_utc': build_finished_at,
             'duration_seconds': build_duration_seconds,
         },
-        'parsed_reports': report,
+        'hls4ml_report': report,
         'artifacts': {
             'output_dir': _portable_path(output_dir),
-            'parsed_report_json': _portable_path(parsed_report_path),
+            'hls4ml_report_json': _portable_path(hls4ml_report_path),
             'build_output_log': _portable_path(build_output_path),
             'bitstreams': _collect_files(output_dir, {'.bit'}),
-            'reports': _collect_files(output_dir, {'.rpt', '.xml'}),
-            'logs': _collect_files(output_dir, {'.log'}),
-            'raw_output_files': _collect_files(output_dir),
+            'project_archive': {
+                'path': _portable_path(project_archive_path),
+                'size_bytes': Path(project_archive_path).stat().st_size,
+                'sha256': _file_sha256(project_archive_path),
+            },
         },
     }
 
@@ -167,8 +203,9 @@ def run_implementation_collection_test(config, hls_model, test_case_id, backend,
     Build an implementation target and emit a dataset record plus raw backend reports.
     """
     metadata = _validate_metadata(backend, metadata)
+    artifact_id = metadata.get('artifact_id', test_case_id)
     build_args = config.get('implementation_build_args', {}).get(backend, config.get('build_args', {}).get(backend, {}))
-    build_output_path = _artifact_path(f'implementation_build_output_{test_case_id}.log')
+    build_output_path = _artifact_path(f'{artifact_id}_build.log')
 
     started_at = _utc_now()
     started = time.monotonic()
@@ -192,7 +229,8 @@ def run_implementation_collection_test(config, hls_model, test_case_id, backend,
     if backend in BITFILE_REQUIRED_BACKENDS:
         assert bitfiles, f'Implementation failed: no bitstream was generated in {output_dir}'
 
-    parsed_report_path = _write_json(report, f'implementation_parsed_report_{test_case_id}.json')
+    hls4ml_report_path = _write_json(report, f'{artifact_id}_hls4ml_report.json')
+    project_archive_path = _zip_directory(output_dir, _artifact_path(f'{artifact_id}_project.zip'))
     dataset = _build_dataset(
         config=config,
         hls_model=hls_model,
@@ -204,7 +242,8 @@ def run_implementation_collection_test(config, hls_model, test_case_id, backend,
         build_started_at=started_at,
         build_finished_at=finished_at,
         build_duration_seconds=duration,
-        parsed_report_path=parsed_report_path,
+        hls4ml_report_path=hls4ml_report_path,
         build_output_path=build_output_path,
+        project_archive_path=project_archive_path,
     )
-    _write_json(dataset, f'implementation_dataset_{test_case_id}.json')
+    _write_json(dataset, f'{artifact_id}_dataset.json')

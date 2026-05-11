@@ -39,8 +39,9 @@ class VitisUnifiedBackend(VitisBackend):
 
         hls_config_file = os.path.join(output_dir, 'hls_kernel_config.cfg')
         # build command
-        csynth_cmd = ('v++ -c --mode hls --config {configPath} --work_dir vitis_unified_project').format(
-            configPath=hls_config_file
+        csynth_cmd = ('v++ -c --mode hls --config {configPath} --part {part} --work_dir vitis_unified_project').format(
+            configPath=hls_config_file,
+            part=model.config.get_config_value('Part'),
         )
         # util template (used in csim/cosim/package)
         util_command = 'vitis-run --mode hls --{op} --config {configPath} --work_dir vitis_unified_project'
@@ -78,6 +79,7 @@ class VitisUnifiedBackend(VitisBackend):
             stderr_target = None if log_to_stdout else open(stderr_log, 'w')
 
             try:
+                print(f'Running Vitis Unified task "{task_name}" in {cwd}: {command}')
                 process = subprocess.Popen(
                     command, shell=True, cwd=cwd, stdout=stdout_target, stderr=stderr_target, text=True
                 )

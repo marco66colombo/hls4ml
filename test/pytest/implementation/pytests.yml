@@ -25,10 +25,16 @@ pytest.implementation.keras_conv1d_small_vivadoacc:
     VITIS_VERSION: "2023.2"
     XILINX_VITIS: "/tools/Xilinx/Vitis/2023.2"
     XILINX_VIVADO: "/tools/Xilinx/Vivado/2023.2"
+    EXAMPLEMODEL: 1
 
-pytest.implementation.keras_api_vitis_unified:
+pytest.implementation.keras_3layer_vitis_unified:
   extends:
     - .pytest-implementation-vitis-unified
   variables:
-    PYTESTFILE: implementation/test_keras_api_vitis_unified.py
-    EXAMPLEMODEL: 0
+    PYTESTFILE: implementation/test_vitis_unified_implementation.py::test_keras_3layer
+
+pytest.implementation.keras_conv1d_small_vitis_unified:
+  extends:
+    - .pytest-implementation-vitis-unified
+  variables:
+    PYTESTFILE: implementation/test_vitis_unified_implementation.py::test_keras_conv1d_small

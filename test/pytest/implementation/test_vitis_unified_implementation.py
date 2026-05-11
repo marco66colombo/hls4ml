@@ -1,0 +1,101 @@
+import subprocess
+from pathlib import Path
+
+from implementation_helpers import run_implementation_collection_test
+from tensorflow.keras.models import model_from_json
+
+import hls4ml
+
+test_root_path = Path(__file__).parent
+example_model_path = (test_root_path / '../../../example-models').resolve()
+
+BACKEND = 'VitisUnified'
+IO_TYPE = 'io_stream'
+VITIS_UNIFIED_BOARD = 'kv260'
+VITIS_UNIFIED_PART = 'xck26-sfvc784-2LV-c'
+VITIS_UNIFIED_AXI_MODE = 'axi_master'
+
+
+def _load_keras_example_model(model_json, weights_h5):
+    model_path = example_model_path / model_json
+    with model_path.open('r') as f:
+        model = model_from_json(f.read())
+    model.load_weights(example_model_path / weights_h5)
+    return model
+
+
+def _example_models_commit():
+    try:
+        return subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=example_model_path, text=True).strip()
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+
+
+def _run_example_model_implementation(
+    *,
+    model_name,
+    model_json,
+    weights_h5,
+    test_case_id,
+    synthesis_config,
+):
+    model = _load_keras_example_model(model_json, weights_h5)
+
+    hls_config = hls4ml.utils.config_from_keras_model(model, granularity='name', backend=BACKEND)
+    hls_config['Model']['Strategy'] = 'latency'
+    output_dir = str(test_root_path / test_case_id)
+    hls_model = hls4ml.converters.convert_from_keras_model(
+        model,
+        hls_config=hls_config,
+        output_dir=output_dir,
+        backend=BACKEND,
+        io_type=IO_TYPE,
+        board=VITIS_UNIFIED_BOARD,
+        part=VITIS_UNIFIED_PART,
+        clock_period='10ns',
+        input_type='float',
+        output_type='float',
+        axi_mode=VITIS_UNIFIED_AXI_MODE,
+    )
+
+    hls_model.compile()
+
+    run_implementation_collection_test(
+        config=synthesis_config,
+        hls_model=hls_model,
+        test_case_id=test_case_id,
+        backend=BACKEND,
+        metadata={
+            'artifact_id': f'{model_name}_vitis_unified_{VITIS_UNIFIED_BOARD}',
+            'model': {
+                'name': model_name,
+                'source': 'example-models',
+                'source_commit': _example_models_commit(),
+                'model_json': str(Path(model_json)),
+                'weights_h5': str(Path(weights_h5)),
+            },
+            'board': VITIS_UNIFIED_BOARD,
+            'part': VITIS_UNIFIED_PART,
+            'axi_mode': VITIS_UNIFIED_AXI_MODE,
+        },
+    )
+
+
+def test_keras_3layer(test_case_id, synthesis_config):
+    _run_example_model_implementation(
+        model_name='keras_3layer',
+        model_json='keras/KERAS_3layer.json',
+        weights_h5='keras/KERAS_3layer_weights.h5',
+        test_case_id=test_case_id,
+        synthesis_config=synthesis_config,
+    )
+
+
+def test_keras_conv1d_small(test_case_id, synthesis_config):
+    _run_example_model_implementation(
+        model_name='keras_conv1d_small',
+        model_json='keras/KERAS_conv1d_small.json',
+        weights_h5='keras/KERAS_conv1d_small_weights.h5',
+        test_case_id=test_case_id,
+        synthesis_config=synthesis_config,
+    )

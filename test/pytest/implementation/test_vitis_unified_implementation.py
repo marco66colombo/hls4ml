@@ -11,8 +11,8 @@ example_model_path = (test_root_path / '../../../example-models').resolve()
 
 BACKEND = 'VitisUnified'
 IO_TYPE = 'io_stream'
-VITIS_UNIFIED_BOARD = 'kv260'
-VITIS_UNIFIED_PART = 'xck26-sfvc784-2LV-c'
+VITIS_UNIFIED_BOARD = 'zcu102'
+VITIS_UNIFIED_PART = 'xczu9eg-ffvb1156-2-e'
 VITIS_UNIFIED_AXI_MODE = 'axi_master'
 
 

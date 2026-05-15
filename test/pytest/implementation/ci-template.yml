@@ -46,19 +46,25 @@
   extends: .pytest-implementation
   script:
     - export IMPLEMENTATION_REPO_ROOT=$PWD
+    - export VITIS_APPTAINER_IMAGE=/cvmfs/projects.cern.ch/hls4ml/vitis/${VITIS_VERSION}
+    - export VITIS_LD_PRELOAD=/usr/lib64/libudev.so.1
+    - export VITIS_APPTAINER_ENV="LANG=C,LC_ALL=C,XILINX_VITIS=${XILINX_VITIS},XILINX_VIVADO=${XILINX_VIVADO},LD_PRELOAD=${VITIS_LD_PRELOAD}"
     - mkdir -p cmd_vivado_${VIVADO_VERSION}
     - echo '#!/bin/bash' > cmd_vivado_${VIVADO_VERSION}/vivado
-    - echo "apptainer exec --cleanenv --env LANG=C,LC_ALL=C --bind ${IMPLEMENTATION_REPO_ROOT}:${IMPLEMENTATION_REPO_ROOT} /cvmfs/projects.cern.ch/hls4ml/vitis/${VITIS_VERSION} vivado \"\$@\"" >> cmd_vivado_${VIVADO_VERSION}/vivado
+    - echo "apptainer exec --cleanenv --env ${VITIS_APPTAINER_ENV} --bind ${IMPLEMENTATION_REPO_ROOT}:${IMPLEMENTATION_REPO_ROOT} ${VITIS_APPTAINER_IMAGE} vivado \"\$@\"" >> cmd_vivado_${VIVADO_VERSION}/vivado
     - chmod +x cmd_vivado_${VIVADO_VERSION}/vivado
     - mkdir -p cmd_vitis_${VITIS_VERSION}
     - echo '#!/bin/bash' > cmd_vitis_${VITIS_VERSION}/vitis-run
-    - echo "apptainer exec --cleanenv --env LANG=C,LC_ALL=C --bind ${IMPLEMENTATION_REPO_ROOT}:${IMPLEMENTATION_REPO_ROOT} /cvmfs/projects.cern.ch/hls4ml/vitis/${VITIS_VERSION} vitis-run \"\$@\"" >> cmd_vitis_${VITIS_VERSION}/vitis-run
+    - echo "apptainer exec --cleanenv --env ${VITIS_APPTAINER_ENV} --bind ${IMPLEMENTATION_REPO_ROOT}:${IMPLEMENTATION_REPO_ROOT} ${VITIS_APPTAINER_IMAGE} vitis-run \"\$@\"" >> cmd_vitis_${VITIS_VERSION}/vitis-run
     - chmod +x cmd_vitis_${VITIS_VERSION}/vitis-run
     - echo '#!/bin/bash' > cmd_vitis_${VITIS_VERSION}/v++
-    - echo "apptainer exec --cleanenv --env LANG=C,LC_ALL=C --bind ${IMPLEMENTATION_REPO_ROOT}:${IMPLEMENTATION_REPO_ROOT} /cvmfs/projects.cern.ch/hls4ml/vitis/${VITIS_VERSION} v++ \"\$@\"" >> cmd_vitis_${VITIS_VERSION}/v++
+    - echo "apptainer exec --cleanenv --env ${VITIS_APPTAINER_ENV} --bind ${IMPLEMENTATION_REPO_ROOT}:${IMPLEMENTATION_REPO_ROOT} ${VITIS_APPTAINER_IMAGE} v++ \"\$@\"" >> cmd_vitis_${VITIS_VERSION}/v++
     - chmod +x cmd_vitis_${VITIS_VERSION}/v++
+    - echo '#!/bin/bash' > cmd_vitis_${VITIS_VERSION}/xclbinutil
+    - echo "apptainer exec --cleanenv --env ${VITIS_APPTAINER_ENV} --bind ${IMPLEMENTATION_REPO_ROOT}:${IMPLEMENTATION_REPO_ROOT} ${VITIS_APPTAINER_IMAGE} xclbinutil \"\$@\"" >> cmd_vitis_${VITIS_VERSION}/xclbinutil
+    - chmod +x cmd_vitis_${VITIS_VERSION}/xclbinutil
     - echo '#!/bin/bash' > cmd_vitis_${VITIS_VERSION}/vitis
-    - echo "apptainer exec --cleanenv --env LANG=C,LC_ALL=C --bind ${IMPLEMENTATION_REPO_ROOT}:${IMPLEMENTATION_REPO_ROOT} /cvmfs/projects.cern.ch/hls4ml/vitis/${VITIS_VERSION} vitis \"\$@\"" >> cmd_vitis_${VITIS_VERSION}/vitis
+    - echo "apptainer exec --cleanenv --env ${VITIS_APPTAINER_ENV} --bind ${IMPLEMENTATION_REPO_ROOT}:${IMPLEMENTATION_REPO_ROOT} ${VITIS_APPTAINER_IMAGE} vitis \"\$@\"" >> cmd_vitis_${VITIS_VERSION}/vitis
     - chmod +x cmd_vitis_${VITIS_VERSION}/vitis
     - export PATH=$PWD/cmd_vivado_${VIVADO_VERSION}:$PWD/cmd_vitis_${VITIS_VERSION}:$PATH
     - export IMPLEMENTATION_DATASET_DIR=$PWD/test/pytest/implementation
